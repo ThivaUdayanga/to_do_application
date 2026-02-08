@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../db_helper.dart';
+import '../controller/task_controller.dart';
+import '../model/task_model.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -25,39 +28,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
     try {
       // Uncomment this when you integrate with DBHelper
-      /*
+
       List<Task> tasks = await DBHelper.getTasks();
       setState(() {
         _tasks = tasks.map((task) => task.toMap()).toList();
-        _isLoading = false;
-      });
-      */
-
-      // Temporary dummy data for testing (remove this later)
-      await Future.delayed(const Duration(seconds: 1));
-      setState(() {
-        _tasks = [
-          {
-            'id': 1,
-            'title': 'Complete Flutter project',
-            'description': 'Finish the todo app with all features',
-            'createdAt': DateTime.now().toIso8601String(),
-            'dueDate': DateTime.now()
-                .add(const Duration(days: 2))
-                .toIso8601String(),
-            'isCompleted': 0,
-          },
-          {
-            'id': 2,
-            'title': 'Study for exam',
-            'description': 'Review chapters 1-5',
-            'createdAt': DateTime.now().toIso8601String(),
-            'dueDate': DateTime.now()
-                .add(const Duration(days: 1))
-                .toIso8601String(),
-            'isCompleted': 1,
-          },
-        ];
         _isLoading = false;
       });
     } catch (e) {
@@ -75,7 +49,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _toggleTaskCompletion(int index) async {
     // Uncomment this when you integrate with DBHelper
-    /*
+
     Task task = Task.fromMap(_tasks[index]);
     task = Task(
       id: task.id,
@@ -86,7 +60,6 @@ class _HomeScreenState extends State<HomeScreen> {
       isCompleted: task.isCompleted == 1 ? 0 : 1,
     );
     await DBHelper.updateTask(task);
-    */
 
     setState(() {
       _tasks[index]['isCompleted'] = _tasks[index]['isCompleted'] == 1 ? 0 : 1;
@@ -95,7 +68,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _deleteTask(int id) async {
     // Uncomment this when you integrate with DBHelper
-    // await DBHelper.deleteTask(id);
+    await DBHelper.deleteTask(id);
 
     _loadTasks();
     ScaffoldMessenger.of(context).showSnackBar(
@@ -212,7 +185,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   onPressed: () async {
                     if (formKey.currentState!.validate()) {
                       // Uncomment this when you integrate with DBHelper
-                      /*
+
                       Task newTask = Task(
                         title: titleController.text,
                         description: descriptionController.text,
@@ -221,7 +194,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         isCompleted: 0,
                       );
                       await DBHelper.insertTask(newTask);
-                      */
 
                       Navigator.pop(context);
                       _loadTasks();
