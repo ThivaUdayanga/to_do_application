@@ -1,5 +1,6 @@
 class Task {
   final int? id;
+  final String ownerId;
   final String title;
   final String description;
   final DateTime createdAt;
@@ -8,6 +9,7 @@ class Task {
 
   Task({
     this.id,
+    required this.ownerId,
     required this.title,
     this.description = '',
     required this.createdAt,
@@ -15,20 +17,20 @@ class Task {
     this.isCompleted = 0,
   });
 
-  // Database eken gaddi (String eka aye DateTime karanna oni)
   factory Task.fromMap(Map<String, dynamic> json) => Task(
-    id: json['id'],
-    title: json['title'],
-    description: json['description'] ?? '',
-    createdAt: DateTime.parse(json['createdAt']),
-    dueDate: DateTime.parse(json['dueDate']),
-    isCompleted: json['isCompleted'],
+    id: json['id'] as int?,
+    ownerId: json['ownerId'] as String,
+    title: json['title'] as String,
+    description: (json['description'] ?? '') as String,
+    createdAt: DateTime.parse(json['createdAt'] as String),
+    dueDate: DateTime.parse(json['dueDate'] as String),
+    isCompleted: json['isCompleted'] as int,
   );
 
-  // Database ekata daddi (DateTime eka String karanna oni)
   Map<String, dynamic> toMap() {
     return {
       'id': id,
+      'ownerId': ownerId,
       'title': title,
       'description': description,
       'createdAt': createdAt.toIso8601String(),

@@ -40,10 +40,11 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       if (success && mounted) {
+        String userId = authController.currentUser?.id.toString() ?? '';
         // Login successful - navigate to home
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const HomeScreen()),
+          MaterialPageRoute(builder: (_) => HomeScreen(ownerId: userId)),
         );
       } else if (mounted) {
         // Login failed - show error message

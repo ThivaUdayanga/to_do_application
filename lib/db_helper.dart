@@ -18,12 +18,13 @@ class DBHelper {
     String path = join(await getDatabasesPath(), 'todo_app.db');
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: (db, version) async {
         // Task table
         await db.execute('''
           CREATE TABLE tasks(
-            id INTEGER PRIMARY KEY AUTOINCREMENT, 
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ownerId TEXT NOT NULL, 
             title TEXT, 
             description TEXT, 
             createdAt TEXT, 
@@ -41,6 +42,20 @@ class DBHelper {
             password TEXT
           )
         ''');
+      },
+
+      onUpgrade: (db, oldVersion, newVersion) async {
+        // ✅ If upgrading from older DB that didn't have ownerId
+        if (oldVersion < 2) {
+          // Add ownerId column if it doesn't exist
+          await db.execute("ALTER TABLE tasks ADD COLUMN ownerId TEXT");
+
+          // Optional: set a default value for existing rows (otherwise they will be null)
+          // If you want old tasks to belong to someone, put a value here.
+          await db.execute(
+            "UPDATE tasks SET ownerId = 'unknown' WHERE ownerId IS NULL",
+          );
+        }
       },
     );
   }
@@ -90,11 +105,29 @@ class DBHelper {
   // 1. Task ekak add kirima (Create)
   static Future<int> insertTask(Task task) async {
     final db = await database;
+
+    // FIX: Remove the 'id' field when inserting (SQLite auto-generates it)
+    Map<String, dynamic> taskMap = task.toMap();
+    taskMap.remove('id'); // Remove null id to avoid SQLite error
+
     return await db.insert(
       'tasks',
-      task.toMap(),
+      taskMap,
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
+  }
+
+  //get task by ownerID
+  static Future<List<Task>> getTasksByOwner(String ownerId) async {
+    final db = await database;
+    final res = await db.query(
+      'tasks',
+      where: 'ownerId = ?',
+      whereArgs: [ownerId],
+      orderBy: 'id DESC',
+    );
+
+    return res.map((e) => Task.fromMap(e)).toList();
   }
 
   // 2. Okkoma tasks list ekak widiyata ganna (Read)
