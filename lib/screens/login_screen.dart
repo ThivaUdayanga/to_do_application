@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:todo_app/screens/home_screen.dart';
 import '../controller/auth_controller.dart';
 import 'registration_screen.dart';
-import 'home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -13,8 +13,10 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
+
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+
   bool _isPasswordVisible = false;
 
   @override
@@ -24,38 +26,34 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  Future<void> _login() async {
-    if (_formKey.currentState!.validate()) {
-      final authController = Provider.of<AuthController>(
-        context,
-        listen: false,
+  Future<void> _onLoginPressed() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    final authController = context.read<AuthController>();
+
+    final success = await authController.login(
+      context: context,
+      email: _emailController.text.trim(),
+      password: _passwordController.text,
+    );
+
+    if (!mounted) return;
+    if (!success) return;
+
+    final int? ownerId = authController.currentUser?.id;
+    if (ownerId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('User ID is missing')),
       );
-
-      // Clear any previous errors
-      authController.clearError();
-
-      bool success = await authController.login(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
-      );
-
-      if (success && mounted) {
-        String userId = authController.currentUser?.id.toString() ?? '';
-        // Login successful - navigate to home
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => HomeScreen(ownerId: userId)),
-        );
-      } else if (mounted) {
-        // Login failed - show error message
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(authController.errorMessage ?? 'Login failed'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      return;
     }
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => HomeScreen(ownerId: ownerId),
+      ),
+    );
   }
 
   @override
@@ -67,19 +65,16 @@ class _LoginScreenState extends State<LoginScreen> {
           body: SafeArea(
             child: Center(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24.0),
+                padding: const EdgeInsets.all(24),
                 child: Form(
                   key: _formKey,
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // Logo/Icon
-                      Icon(Icons.task_alt, size: 80, color: Colors.deepPurple),
+                      const Icon(Icons.lock, size: 80, color: Colors.deepPurple),
                       const SizedBox(height: 20),
-
-                      // Title
                       const Text(
-                        'Welcome Back!',
+                        'Welcome Back',
                         style: TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.bold,
@@ -88,12 +83,11 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       const SizedBox(height: 8),
                       const Text(
-                        'Login to your account',
+                        'Login to continue',
                         style: TextStyle(fontSize: 16, color: Colors.black54),
                       ),
                       const SizedBox(height: 40),
 
-                      // Email Field
                       TextFormField(
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
@@ -107,7 +101,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           fillColor: Colors.white,
                         ),
                         validator: (value) {
-                          if (value == null || value.isEmpty) {
+                          if (value == null || value.trim().isEmpty) {
                             return 'Please enter your email';
                           }
                           if (!value.contains('@')) {
@@ -118,7 +112,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       const SizedBox(height: 16),
 
-                      // Password Field
                       TextFormField(
                         controller: _passwordController,
                         obscureText: !_isPasswordVisible,
@@ -155,12 +148,11 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       const SizedBox(height: 24),
 
-                      // Login Button
                       SizedBox(
                         width: double.infinity,
                         height: 50,
                         child: ElevatedButton(
-                          onPressed: authController.isLoading ? null : _login,
+                          onPressed: authController.isLoading ? null : _onLoginPressed,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.deepPurple,
                             foregroundColor: Colors.white,
@@ -169,21 +161,18 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                           child: authController.isLoading
-                              ? const CircularProgressIndicator(
-                                  color: Colors.white,
-                                )
+                              ? const CircularProgressIndicator(color: Colors.white)
                               : const Text(
-                                  'Login',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
+                            'Login',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 20),
 
-                      // Navigate to Registration
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -196,8 +185,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) =>
-                                      const RegistrationScreen(),
+                                  builder: (_) => const RegistrationScreen(),
                                 ),
                               );
                             },

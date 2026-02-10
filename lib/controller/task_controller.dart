@@ -6,6 +6,7 @@ class TaskController extends ChangeNotifier {
   List<Task> _tasks = [];
   bool _isLoading = false;
   String? _errorMessage;
+
   String _filterStatus = 'all'; // all, completed, pending, overdue
   String _sortBy = 'date'; // date, title, dueDate
 
@@ -40,12 +41,34 @@ class TaskController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ✅ Load tasks only for this owner
-  Future<void> loadTasks(String ownerId) async {
+  // -------- DUPLICATE TITLE HANDLING --------
+
+  String _normalizeTitle(String s) {
+    return s.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+  }
+
+  bool _isTitleAlreadyInTasks({
+    required int ownerId,
+    required String newTitle,
+    int? ignoreTaskId,
+  }) {
+    final newNorm = _normalizeTitle(newTitle);
+
+    return _tasks.any((t) {
+      if (t.ownerId != ownerId) return false;
+      if (ignoreTaskId != null && t.id == ignoreTaskId) return false;
+      return _normalizeTitle(t.title) == newNorm;
+    });
+  }
+
+  // -------- LOAD --------
+
+  Future<void> loadTasks(int ownerId) async {
     _setLoading(true);
     _setError(null);
 
     try {
+      // NOTE: DBHelper.getTasksByOwner must accept int ownerId
       _tasks = await DBHelper.getTasksByOwner(ownerId);
     } catch (e) {
       _setError('Failed to load tasks: ${e.toString()}');
@@ -54,9 +77,10 @@ class TaskController extends ChangeNotifier {
     _setLoading(false);
   }
 
-  // ✅ Add new task for owner
+  // -------- ADD --------
+
   Future<bool> addTask({
-    required String ownerId,
+    required int ownerId,
     required String title,
     required String description,
     required DateTime dueDate,
@@ -65,17 +89,36 @@ class TaskController extends ChangeNotifier {
     _setError(null);
 
     try {
+      final cleanTitle = title.trim();
+      final cleanDesc = description.trim();
+
+      if (cleanTitle.isEmpty) {
+        _setError('Title cannot be empty.');
+        _setLoading(false);
+        return false;
+      }
+
+      if (_isTitleAlreadyInTasks(ownerId: ownerId, newTitle: cleanTitle)) {
+        _setError('A task with this title already exists.');
+        _setLoading(false);
+        return false;
+      }
+
       final newTask = Task(
         ownerId: ownerId,
-        title: title,
-        description: description,
+        title: cleanTitle,
+        description: cleanDesc,
         createdAt: DateTime.now(),
         dueDate: dueDate,
         isCompleted: 0,
       );
 
       await DBHelper.insertTask(newTask);
-      await loadTasks(ownerId);
+      print('create task');
+      //await loadTasks(ownerId);
+      //print('load owner id');
+
+      _setLoading(false);
       return true;
     } catch (e) {
       _setError('Failed to add task: ${e.toString()}');
@@ -84,14 +127,46 @@ class TaskController extends ChangeNotifier {
     }
   }
 
-  // ✅ Update and reload only that owner's tasks
+  // -------- EDIT / UPDATE --------
+
   Future<bool> updateTask(Task task) async {
     _setLoading(true);
     _setError(null);
 
     try {
-      await DBHelper.updateTask(task);
+      final cleanTitle = task.title.trim();
+      final cleanDesc = task.description.trim();
+
+      if (cleanTitle.isEmpty) {
+        _setError('Title cannot be empty.');
+        _setLoading(false);
+        return false;
+      }
+
+      if (_isTitleAlreadyInTasks(
+        ownerId: task.ownerId,
+        newTitle: cleanTitle,
+        ignoreTaskId: task.id,
+      )) {
+        _setError('A task with this title already exists.');
+        _setLoading(false);
+        return false;
+      }
+
+      final updatedTask = Task(
+        id: task.id,
+        ownerId: task.ownerId,
+        title: cleanTitle,
+        description: cleanDesc,
+        createdAt: task.createdAt,
+        dueDate: task.dueDate,
+        isCompleted: task.isCompleted,
+      );
+
+      await DBHelper.updateTask(updatedTask);
       await loadTasks(task.ownerId);
+
+      _setLoading(false);
       return true;
     } catch (e) {
       _setError('Failed to update task: ${e.toString()}');
@@ -100,34 +175,40 @@ class TaskController extends ChangeNotifier {
     }
   }
 
-  // ✅ Toggle keeps ownerId
-  Future<bool> toggleTaskCompletion(Task task) async {
-    try {
-      final updated = Task(
-        id: task.id,
-        ownerId: task.ownerId,
-        title: task.title,
-        description: task.description,
-        createdAt: task.createdAt,
-        dueDate: task.dueDate,
-        isCompleted: task.isCompleted == 1 ? 0 : 1,
-      );
+  // -------- SET COMPLETE --------
 
-      return await updateTask(updated);
-    } catch (e) {
-      _setError('Failed to toggle task: ${e.toString()}');
-      return false;
-    }
+  Future<bool> setTaskComplete(Task task, bool completed) async {
+    final updated = Task(
+      id: task.id,
+      ownerId: task.ownerId,
+      title: task.title,
+      description: task.description,
+      createdAt: task.createdAt,
+      dueDate: task.dueDate,
+      isCompleted: completed ? 1 : 0,
+    );
+
+    return updateTask(updated);
   }
 
-  // ✅ Delete then reload owner tasks
-  Future<bool> deleteTask({required int id, required String ownerId}) async {
+  Future<bool> toggleTaskCompletion(Task task) async {
+    return setTaskComplete(task, task.isCompleted != 1);
+  }
+
+  // -------- DELETE --------
+
+  Future<bool> deleteTask({
+    required int id,
+    required int ownerId,
+  }) async {
     _setLoading(true);
     _setError(null);
 
     try {
       await DBHelper.deleteTask(id);
       await loadTasks(ownerId);
+
+      _setLoading(false);
       return true;
     } catch (e) {
       _setError('Failed to delete task: ${e.toString()}');
@@ -135,6 +216,8 @@ class TaskController extends ChangeNotifier {
       return false;
     }
   }
+
+  // -------- FILTER / SORT --------
 
   void setFilter(String status) {
     _filterStatus = status;
@@ -158,9 +241,7 @@ class TaskController extends ChangeNotifier {
         break;
       case 'overdue':
         filtered = _tasks
-            .where(
-              (t) => t.isCompleted == 0 && t.dueDate.isBefore(DateTime.now()),
-            )
+            .where((t) => t.isCompleted == 0 && t.dueDate.isBefore(DateTime.now()))
             .toList();
         break;
       case 'all':
@@ -181,65 +262,5 @@ class TaskController extends ChangeNotifier {
     }
 
     return filtered;
-  }
-
-  List<Task> searchTasks(String query) {
-    if (query.isEmpty) return tasks;
-
-    final q = query.toLowerCase();
-    return _tasks.where((t) {
-      return t.title.toLowerCase().contains(q) ||
-          t.description.toLowerCase().contains(q);
-    }).toList();
-  }
-
-  List<Task> getTasksDueToday() {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final tomorrow = today.add(const Duration(days: 1));
-
-    return _tasks.where((t) {
-      return t.isCompleted == 0 &&
-          t.dueDate.isAfter(today) &&
-          t.dueDate.isBefore(tomorrow);
-    }).toList();
-  }
-
-  List<Task> getTasksDueThisWeek() {
-    final now = DateTime.now();
-    final startOfWeek = DateTime(
-      now.year,
-      now.month,
-      now.day,
-    ).subtract(Duration(days: now.weekday - 1));
-    final endOfWeek = startOfWeek.add(const Duration(days: 7));
-
-    return _tasks.where((t) {
-      return t.isCompleted == 0 &&
-          t.dueDate.isAfter(startOfWeek) &&
-          t.dueDate.isBefore(endOfWeek);
-    }).toList();
-  }
-
-  Future<bool> clearCompletedTasks(String ownerId) async {
-    _setLoading(true);
-    _setError(null);
-
-    try {
-      final completed = _tasks.where((t) => t.isCompleted == 1).toList();
-
-      for (final t in completed) {
-        if (t.id != null) {
-          await DBHelper.deleteTask(t.id!);
-        }
-      }
-
-      await loadTasks(ownerId);
-      return true;
-    } catch (e) {
-      _setError('Failed to clear completed tasks: ${e.toString()}');
-      _setLoading(false);
-      return false;
-    }
   }
 }

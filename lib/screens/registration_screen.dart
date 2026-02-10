@@ -10,17 +10,23 @@ class RegistrationScreen extends StatefulWidget {
 }
 
 class _RegistrationScreenState extends State<RegistrationScreen> {
+  // Key used to validate the entire form
   final _formKey = GlobalKey<FormState>();
+
+  // Controllers to read input values
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+
+  // UI-only states (visibility toggles)
   bool _isPasswordVisible = false;
   bool _isConfirmPasswordVisible = false;
 
   @override
   void dispose() {
+    // Always dispose controllers to avoid memory leaks
     _firstNameController.dispose();
     _lastNameController.dispose();
     _emailController.dispose();
@@ -29,42 +35,24 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     super.dispose();
   }
 
-  Future<void> _register() async {
-    if (_formKey.currentState!.validate()) {
-      final authController = Provider.of<AuthController>(
-        context,
-        listen: false,
-      );
+  // UI triggers controller registration method
+  Future<void> _onRegisterPressed() async {
+    if (!_formKey.currentState!.validate()) return;
 
-      // Clear any previous errors
-      authController.clearError();
+    final authController = context.read<AuthController>();
 
-      bool success = await authController.register(
-        firstName: _firstNameController.text.trim(),
-        lastName: _lastNameController.text.trim(),
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
-      );
+    // Call the controller method (business logic is inside controller)
+    final success = await authController.register(
+      context: context,
+      firstName: _firstNameController.text.trim(),
+      lastName: _lastNameController.text.trim(),
+      email: _emailController.text.trim(),
+      password: _passwordController.text,
+    );
 
-      if (success && mounted) {
-        // Registration successful
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Registration successful! Please login.'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        // Navigate back to login screen
-        Navigator.pop(context);
-      } else if (mounted) {
-        // Registration failed
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(authController.errorMessage ?? 'Registration failed'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+    // If success, go back to Login screen
+    if (success && mounted) {
+      Navigator.pop(context);
     }
   }
 
@@ -82,21 +70,21 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           body: SafeArea(
             child: Center(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24.0),
+                padding: const EdgeInsets.all(24),
                 child: Form(
                   key: _formKey,
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // Logo/Icon
-                      Icon(
+                      // Header icon
+                      const Icon(
                         Icons.person_add,
                         size: 80,
                         color: Colors.deepPurple,
                       ),
                       const SizedBox(height: 20),
 
-                      // Title
+                      // Titles
                       const Text(
                         'Create Account',
                         style: TextStyle(
@@ -112,7 +100,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                       ),
                       const SizedBox(height: 40),
 
-                      // First Name Field
+                      // First name
                       TextFormField(
                         controller: _firstNameController,
                         decoration: InputDecoration(
@@ -125,7 +113,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                           fillColor: Colors.white,
                         ),
                         validator: (value) {
-                          if (value == null || value.isEmpty) {
+                          if (value == null || value.trim().isEmpty) {
                             return 'Please enter your first name';
                           }
                           return null;
@@ -133,7 +121,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                       ),
                       const SizedBox(height: 16),
 
-                      // Last Name Field
+                      // Last name
                       TextFormField(
                         controller: _lastNameController,
                         decoration: InputDecoration(
@@ -146,7 +134,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                           fillColor: Colors.white,
                         ),
                         validator: (value) {
-                          if (value == null || value.isEmpty) {
+                          if (value == null || value.trim().isEmpty) {
                             return 'Please enter your last name';
                           }
                           return null;
@@ -154,7 +142,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                       ),
                       const SizedBox(height: 16),
 
-                      // Email Field
+                      // Email
                       TextFormField(
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
@@ -168,7 +156,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                           fillColor: Colors.white,
                         ),
                         validator: (value) {
-                          if (value == null || value.isEmpty) {
+                          if (value == null || value.trim().isEmpty) {
                             return 'Please enter your email';
                           }
                           if (!value.contains('@')) {
@@ -179,7 +167,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                       ),
                       const SizedBox(height: 16),
 
-                      // Password Field
+                      // Password
                       TextFormField(
                         controller: _passwordController,
                         obscureText: !_isPasswordVisible,
@@ -216,7 +204,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                       ),
                       const SizedBox(height: 16),
 
-                      // Confirm Password Field
+                      // Confirm password
                       TextFormField(
                         controller: _confirmPasswordController,
                         obscureText: !_isConfirmPasswordVisible,
@@ -232,7 +220,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                             onPressed: () {
                               setState(() {
                                 _isConfirmPasswordVisible =
-                                    !_isConfirmPasswordVisible;
+                                !_isConfirmPasswordVisible;
                               });
                             },
                           ),
@@ -254,14 +242,13 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                       ),
                       const SizedBox(height: 24),
 
-                      // Register Button
+                      // Register button
                       SizedBox(
                         width: double.infinity,
                         height: 50,
                         child: ElevatedButton(
-                          onPressed: authController.isLoading
-                              ? null
-                              : _register,
+                          onPressed:
+                          authController.isLoading ? null : _onRegisterPressed,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.deepPurple,
                             foregroundColor: Colors.white,
@@ -271,20 +258,20 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                           ),
                           child: authController.isLoading
                               ? const CircularProgressIndicator(
-                                  color: Colors.white,
-                                )
+                            color: Colors.white,
+                          )
                               : const Text(
-                                  'Register',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
+                            'Register',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 20),
 
-                      // Navigate to Login
+                      // Back to login
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -293,9 +280,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                             style: TextStyle(color: Colors.black54),
                           ),
                           TextButton(
-                            onPressed: () {
-                              Navigator.pop(context);
-                            },
+                            onPressed: () => Navigator.pop(context),
                             child: const Text(
                               'Login',
                               style: TextStyle(

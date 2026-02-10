@@ -18,16 +18,16 @@ class DBHelper {
     String path = join(await getDatabasesPath(), 'todo_app.db');
     return await openDatabase(
       path,
-      version: 2,
+      version: 3,
       onCreate: (db, version) async {
         // Task table
         await db.execute('''
           CREATE TABLE tasks(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            ownerId TEXT NOT NULL, 
-            title TEXT, 
+            ownerId INTEGER NOT NULL, 
+            title TEXT NOT NULL, 
             description TEXT, 
-            createdAt TEXT, 
+            createdAt TEXT , 
             dueDate TEXT, 
             isCompleted INTEGER
           )
@@ -45,13 +45,7 @@ class DBHelper {
       },
 
       onUpgrade: (db, oldVersion, newVersion) async {
-        // ✅ If upgrading from older DB that didn't have ownerId
-        if (oldVersion < 2) {
-          // Add ownerId column if it doesn't exist
-          await db.execute("ALTER TABLE tasks ADD COLUMN ownerId TEXT");
-
-          // Optional: set a default value for existing rows (otherwise they will be null)
-          // If you want old tasks to belong to someone, put a value here.
+        if (oldVersion < 3) {
           await db.execute(
             "UPDATE tasks SET ownerId = 'unknown' WHERE ownerId IS NULL",
           );
@@ -118,7 +112,7 @@ class DBHelper {
   }
 
   //get task by ownerID
-  static Future<List<Task>> getTasksByOwner(String ownerId) async {
+  static Future<List<Task>> getTasksByOwner(ownerId) async {
     final db = await database;
     final res = await db.query(
       'tasks',
@@ -127,7 +121,7 @@ class DBHelper {
       orderBy: 'id DESC',
     );
 
-    return res.map((e) => Task.fromMap(e)).toList();
+    return res.map((m) => Task.fromMap(m)).toList();
   }
 
   // 2. Okkoma tasks list ekak widiyata ganna (Read)

@@ -1,6 +1,6 @@
 class Task {
   final int? id;
-  final String ownerId;
+  final int ownerId;
   final String title;
   final String description;
   final DateTime createdAt;
@@ -11,26 +11,32 @@ class Task {
     this.id,
     required this.ownerId,
     required this.title,
-    this.description = '',
+    required this.description,
     required this.createdAt,
     required this.dueDate,
-    this.isCompleted = 0,
+    required this.isCompleted,
   });
 
-  factory Task.fromMap(Map<String, dynamic> json) => Task(
-    id: json['id'] as int?,
-    ownerId: json['ownerId'] as String,
-    title: json['title'] as String,
-    description: (json['description'] ?? '') as String,
-    createdAt: DateTime.parse(json['createdAt'] as String),
-    dueDate: DateTime.parse(json['dueDate'] as String),
-    isCompleted: json['isCompleted'] as int,
-  );
+  factory Task.fromMap(Map<String, dynamic> map) {
+    return Task(
+      id: map['id'] as int?,
+      ownerId: (map['ownerId'] is int)
+          ? map['ownerId'] as int
+          : int.parse(map['ownerId'].toString()),
+      title: (map['title'] ?? '') as String,
+      description: (map['description'] ?? '') as String,
+      createdAt: DateTime.parse(map['createdAt'] as String),
+      dueDate: DateTime.parse(map['dueDate'] as String),
+      isCompleted: (map['isCompleted'] is int)
+          ? map['isCompleted'] as int
+          : int.parse(map['isCompleted'].toString()),
+    );
+  }
 
   Map<String, dynamic> toMap() {
     return {
       'id': id,
-      'ownerId': ownerId,
+      'ownerId': ownerId, // ✅ int saved to DB
       'title': title,
       'description': description,
       'createdAt': createdAt.toIso8601String(),
