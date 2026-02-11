@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../controller/task_controller.dart';
 import '../model/task_model.dart';
+import 'settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final int ownerId;
@@ -136,6 +137,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ownerId: widget.ownerId,
                       title: titleController.text,
                       description: descriptionController.text,
+                      createdAt: DateTime.now(),
                       dueDate: selectedDate,
                     );
 
@@ -485,12 +487,36 @@ class _HomeScreenState extends State<HomeScreen> {
               );
             },
           ),
-          floatingActionButton: FloatingActionButton(
-            onPressed: _showAddTaskDialog,
-            backgroundColor: Colors.deepPurple,
-            child: const Icon(Icons.add, color: Colors.white),
-          ),
-          //in this place add settings icon button. It is navigate to application settings page
+          // floatingActionButton: FloatingActionButton(
+          //   onPressed: _showAddTaskDialog,
+          //   backgroundColor: Colors.deepPurple,
+          //   child: const Icon(Icons.add, color: Colors.white),
+          // ),
+          floatingActionButton: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              FloatingActionButton(
+                heroTag: 'settingsFab',
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => SettingsScreen(ownerId: widget.ownerId),
+                    ),
+                  );
+                },
+                backgroundColor: Colors.blueGrey,
+                child: const Icon(Icons.settings, color: Colors.white),
+              ),
+              const SizedBox(height: 12),
+              FloatingActionButton(
+                heroTag: 'addFab',
+                onPressed: _showAddTaskDialog,
+                backgroundColor: Colors.deepPurple,
+                child: const Icon(Icons.add, color: Colors.white),
+              ),
+            ]
+          )
         );
       },
     );

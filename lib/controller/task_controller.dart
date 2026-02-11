@@ -61,6 +61,22 @@ class TaskController extends ChangeNotifier {
     });
   }
 
+  bool _isSameDay(DateTime a, DateTime b){
+    return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
+  // int _isValidForDelete(DateTime a, DateTime b, c){
+  //   a.year-b.year == 0 && a.month-b.month == 0 && a.day-b.day == 0 && a.hour-b.hour == c;
+  // }
+
+  bool _canDeleteTask({
+      required DateTime dueDate,
+      required int deleteBlocktimeHours,
+  }){
+    final diffHours = dueDate.difference(DateTime.now()).inHours;
+    return diffHours >= deleteBlocktimeHours;
+  }
+
   // -------- LOAD --------
 
   Future<void> loadTasks(int ownerId) async {
@@ -83,6 +99,7 @@ class TaskController extends ChangeNotifier {
     required int ownerId,
     required String title,
     required String description,
+    required DateTime createdAt,
     required DateTime dueDate,
   }) async {
     _setLoading(true);
@@ -94,6 +111,19 @@ class TaskController extends ChangeNotifier {
 
       if (cleanTitle.isEmpty) {
         _setError('Title cannot be empty.');
+        _setLoading(false);
+        return false;
+      }
+
+      final settings = await DBHelper.getSettingsByOwner(ownerId);
+      final int maxPerDay = settings.maxTasksPerDay;
+
+      final int taskOnThatday = _tasks.where((t){
+        return t.ownerId == ownerId && _isSameDay(t.createdAt, createdAt);
+      }).length;
+
+      if (taskOnThatday >= maxPerDay){
+        _setError('You can only add $maxPerDay tasks for this day');
         _setLoading(false);
         return false;
       }
@@ -205,8 +235,55 @@ class TaskController extends ChangeNotifier {
     _setError(null);
 
     try {
+      if(_tasks.isEmpty){
+        await loadTasks(ownerId);
+      }
+
+      final task = _tasks.firstWhere(
+          (t) => t.id == id && t.ownerId == ownerId,
+        orElse: (){
+            throw Exception('Task Not Found');
+        },
+      );
+
+      final settings = await DBHelper.getSettingsByOwner(ownerId);
+      final int deleteBlockTime = settings.deleteBlockTime; // hours
+
+      final allowed = _canDeleteTask(
+        dueDate: task.dueDate,
+        deleteBlocktimeHours: deleteBlockTime,
+      );
+
+      if (!allowed) {
+        _setError('You cannot delete this task yet.');
+        _setLoading(false);
+        return false;
+      }
+
       await DBHelper.deleteTask(id);
       await loadTasks(ownerId);
+
+      // final settings = await DBHelper.getSettingsByOwner(ownerId);
+      // final int deleteBlockTime = settings.deleteBlockTime;
+
+      // final int taskOnThatday = _tasks.where((t){
+      //   return t.ownerId == ownerId && _isSameDay(t.createdAt, createdAt);
+      // }).length;
+      //
+      // if (taskOnThatday >= maxPerDay){
+      //   _setError('You can only add $maxPerDay tasks for this day');
+      //   _setLoading(false);
+      //   return false;
+      // }
+
+      // final int CanDelete = _tasks.where((t){
+      //   return t.ownerId == ownerId && _isValidForDelete(t.dueDate, DateTime.now);
+      // }).length;
+      //
+      // if( CanDelete >= deleteBlockTime){
+      //   _setError('You Cannot delete This task');
+      //   return false;
+      // }
 
       _setLoading(false);
       return true;

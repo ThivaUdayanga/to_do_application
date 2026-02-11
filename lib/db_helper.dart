@@ -4,6 +4,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'model/user_model.dart';
 import 'model/task_model.dart';
+import 'model/settings_model.dart';
 
 class DBHelper {
   static Database? _database; //singleton pattern
@@ -18,7 +19,7 @@ class DBHelper {
     String path = join(await getDatabasesPath(), 'todo_app.db');
     return await openDatabase(
       path,
-      version: 3,
+      version: 5,
       onCreate: (db, version) async {
         // Task table
         await db.execute('''
@@ -42,13 +43,25 @@ class DBHelper {
             password TEXT
           )
         ''');
+        // settings table
+        await db.execute('''
+          CREATE TABLE settings(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ownerId INTEGER NOT NULL, 
+            deleteBlockTime INTEGER NOT NULL DEFAULT 24,
+            maxTasksPerDay INTEGER NOT NULL DEFAULT 2
+          )
+        ''');
       },
 
       onUpgrade: (db, oldVersion, newVersion) async {
-        if (oldVersion < 3) {
+        if (oldVersion < 5) {
           await db.execute(
             "UPDATE tasks SET ownerId = 'unknown' WHERE ownerId IS NULL",
           );
+          // await db.execute(
+          //   "UPDATE settings SET ownerId = 'unknown' WHERE ownerId IS NULL",
+          // );
         }
       },
     );
@@ -100,7 +113,6 @@ class DBHelper {
   static Future<int> insertTask(Task task) async {
     final db = await database;
 
-    // FIX: Remove the 'id' field when inserting (SQLite auto-generates it)
     Map<String, dynamic> taskMap = task.toMap();
     taskMap.remove('id'); // Remove null id to avoid SQLite error
 
@@ -110,6 +122,49 @@ class DBHelper {
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
+
+  //settings
+
+  static Future<int> saveSettings(SettingsModel settings) async {
+    final db = await database;
+
+    final Map<String, dynamic> map = settings.toMap();
+
+    if (map['id'] == null) {
+      map.remove('id');
+    }
+
+    return await db.insert(
+      'settings',
+      map,
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  static Future<SettingsModel> getSettingsByOwner(int ownerId) async {
+    final db = await database;
+
+    final res = await db.query(
+      'settings',
+      where: 'ownerId = ?',
+      whereArgs: [ownerId],
+      limit: 1,
+    );
+
+    if (res.isEmpty) {
+      final defaults = SettingsModel(
+        ownerId: ownerId,
+        deleteBlockTime: 24,
+        maxTasksPerDay: 2,
+      );
+      await saveSettings(defaults);
+      return defaults;
+    }
+
+    return SettingsModel.fromMap(res.first);
+  }
+
+
 
   //get task by ownerID
   static Future<List<Task>> getTasksByOwner(ownerId) async {
