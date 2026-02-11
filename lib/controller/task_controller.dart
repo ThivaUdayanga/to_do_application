@@ -255,7 +255,7 @@ class TaskController extends ChangeNotifier {
       );
 
       if (!allowed) {
-        _setError('You cannot delete this task yet.');
+        _setError('You cannot delete this task now.');
         _setLoading(false);
         return false;
       }
